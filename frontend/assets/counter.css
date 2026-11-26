@@ -1,0 +1,56 @@
+.login-grid { min-height: calc(100dvh - 63px); display: grid; grid-template-columns: 1.5fr 1fr; }
+.login-cover { background: var(--navy); color: var(--chalk); display: grid; align-content: center; gap: 18px; padding: 58px clamp(30px, 6vw, 100px); border-top: 1px solid oklch(38% .034 238); }
+.login-cover .eyebrow { color: var(--light-orange); }
+.login-cover h1 { max-width: 10ch; }
+.login-cover p:not(.eyebrow) { color: oklch(83% .028 233); max-width: 39ch; }
+.login-sheet { padding: 55px clamp(28px, 4.6vw, 74px); display: grid; align-content: center; gap: 18px; background: var(--paper); }
+.login-sheet h2 { font-size: clamp(1.65rem, 2.9vw, 2.65rem); }
+.login-sheet form { max-width: 420px; }
+.demo-list { padding-top: 15px; border-top: 1px solid var(--line); max-width: 420px; }
+.demo-list p { font-size: .85rem; margin: 0 0 10px; }
+.demo-list .quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.station-line { min-height: 118px; display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; position: relative; margin: 10px 0 2px; }
+.station-line::before { content: ""; height: 2px; position: absolute; inset-inline: 16.66%; top: 46px; background: currentColor; opacity: .55; }
+.stop { position: relative; z-index: 1; text-align: center; display: grid; justify-items: center; gap: 1px; font-size: .87rem; }
+.stop::before { content: ""; width: 13px; height: 13px; background: var(--navy); border: 2px solid currentColor; }
+.stop.active::before { background: var(--light-orange); }
+.stop small { opacity: .8; }
+.domain-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(290px, .9fr); align-items: start; gap: 17px; }
+.domain-grid.search-grid { grid-template-columns: minmax(290px, .8fr) minmax(0, 1.75fr); }
+.three-prongs { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; align-items: start; }
+.stack { display: grid; gap: 16px; }
+.registry .panel h2 { margin-bottom: 12px; }
+.row-toolbar { display: flex; flex-wrap: wrap; gap: 9px; align-items: end; margin-block: 13px; }
+.row-toolbar label { flex: 1; }
+.stamp { display: inline-block; font-family: "Space Mono", monospace; padding: .27rem .48rem; text-transform: uppercase; border: 1px solid var(--orange); color: var(--orange); }
+.ledger { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+.ledger li { border-left: 1px solid var(--line); padding: 4px 0 4px 10px; }
+.ledger time { font-size: .79rem; color: var(--muted); }
+.recall-head { display: flex; justify-content: space-between; gap: 15px; align-items: start; margin-bottom: 14px; }
+.recall-head p { font-size: .85rem; }
+.recall-ticket { min-height: 70px; display: grid; grid-template-columns: 1.1fr .7fr 1fr; gap: 10px; padding: 10px 2px; border-top: 1px dashed var(--line); align-items: center; }
+.recall-ticket small { color: var(--muted); display: block; }
+.recall-ticket progress { width: min(100%, 110px); height: 7px; accent-color: var(--green); }
+.recall-ticket form { justify-self: end; display: flex; align-items: center; gap: 4px; }
+.recall-ticket form input { width: 136px; }
+.recall-history { margin-top: 16px; }
+.movement-list { display: grid; margin-top: 13px; }
+.movement { border-block-start: 1px solid var(--line); padding: 12px 0; }
+.movement .route { display: flex; align-items: center; gap: 7px; font-weight: 700; }
+.movement .route i { flex: 1; height: 2px; background: var(--line); position: relative; }
+.movement .route i::after { content: ""; border: solid var(--orange); border-width: 0 2px 2px 0; transform: rotate(-45deg); width: 7px; height: 7px; position: absolute; right: 1px; top: -2px; }
+.movement form { margin-top: 10px; }
+.notes { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.notes li { border-bottom: 1px dotted var(--line); padding-bottom: 10px; }
+.notes b { display: block; }
+@media (max-width: 960px) {
+  .login-grid { grid-template-columns: 1fr 1fr; }
+  .domain-grid, .domain-grid.search-grid, .three-prongs { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .login-grid { grid-template-columns: 1fr; }
+  .login-cover { padding: 26px 18px 12px; }
+  .login-sheet { padding: 26px 18px; }
+  .recall-ticket { grid-template-columns: 1fr 1fr; }
+  .recall-ticket form { grid-column: span 2; justify-self: start; }
+}

@@ -1,0 +1,80 @@
+name: rail-lost-claim
+x-runtime: &runtime
+  build: ./backend
+  image: rail-lost-claim-app:local
+  environment:
+    DATABASE_URL: postgresql://rail:${POSTGRES_PASSWORD:-rail_local_database}@db:5432/rail
+    REDIS_URL: redis://redis:6379/0
+    TOKEN_SECRET: ${TOKEN_SECRET:-rail-only-local-demo-jwt-change-before-sharing}
+    PROOF_SECRET: ${PROOF_SECRET:-rail-only-local-demo-proof-change-before-sharing}
+    SEED_DEMO: ${SEED_DEMO:-true}
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  volumes:
+    - exchanges:/exchange
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: ${COMPOSE_PROJECT_NAME:-rail-lost-claim}-frontend
+    ports: ["127.0.0.1:${FRONTEND_PORT:-18300}:80"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -qO-, 'http://127.0.0.1/healthz']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  backend:
+    <<: *runtime
+    container_name: ${COMPOSE_PROJECT_NAME:-rail-lost-claim}-backend
+    ports: ["127.0.0.1:${BACKEND_PORT:-19300}:8000"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  worker:
+    <<: *runtime
+    container_name: ${COMPOSE_PROJECT_NAME:-rail-lost-claim}-worker
+    command: [python, -m, railway.worker]
+    healthcheck:
+      test: [CMD, python, -m, railway.worker, --health]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  db:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-rail-lost-claim}-db
+    environment:
+      POSTGRES_DB: rail
+      POSTGRES_USER: rail
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rail_local_database}
+    ports: ["127.0.0.1:${DB_PORT:-17800}:5432"]
+    volumes:
+      - data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD, pg_isready, -U, rail, -d, rail]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-rail-lost-claim}-redis
+    command: [redis-server, --appendonly, 'yes']
+    volumes:
+      - queue:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  data:
+  queue:
+  exchanges:
