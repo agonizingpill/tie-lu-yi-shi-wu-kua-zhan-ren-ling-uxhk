@@ -12,8 +12,18 @@ def get_search(db, search_id, *, lock=False):
 def hits(db, search_id):
     return db.execute("""
         SELECT h.seal_id, h.score, h.rank, h.exact_features, h.collision_slots, h.auditable,
-               b.category, b.color, b.train_no, b.state AS bag_state, b.current_station
-        FROM recall_hits h JOIN sealed_bags b USING (seal_id)
+               b.category, b.color, b.train_no, b.state AS bag_state, b.current_station,
+               (r.search_id IS NOT NULL) AS proof_rejected,
+               vn.id AS verification_id
+        FROM recall_hits h
+        JOIN sealed_bags b USING (seal_id)
+        LEFT JOIN verification_rejections r
+          ON r.search_id = h.search_id AND r.seal_id = h.seal_id
+        LEFT JOIN verification_numbers vn
+          ON vn.search_id = h.search_id
+         AND vn.seal_id = h.seal_id
+         AND vn.status NOT IN ('verified', 'completed', 'rejected', 'failed',
+                               'revoked', 'expired', 'cancelled', 'canceled')
         WHERE h.search_id = %s ORDER BY h.rank
     """, (search_id,)).fetchall()
 

@@ -54,6 +54,57 @@ class ClaimProof(Input):
     search_id: int
     seal_id: Seal
     answer: Proof
+    ticket_id: int | None = None
+    verification_id: int | None = None
+    call_id: int | None = None
+    number: int | None = None
+    verification_no: int | str | None = None
+    ticket_no: int | str | None = None
+    call_no: int | str | None = None
+    idempotency_key: str | int | None = None
+    idempotency_token: str | int | None = None
+    request_id: str | int | None = None
+    request_token: str | int | None = None
+    client_token: str | int | None = None
+    nonce: str | int | None = None
+    key: str | int | None = None
+
+
+class CallNumberRequest(Input):
+    model_config = ConfigDict(extra="allow")
+
+    search_id: int | None = None
+    id: int | None = None
+    seal_id: str | None = None
+    search_ids: list[int] | None = None
+    station_code: str | None = None
+    station: str | None = None
+    all_eligible: bool | None = True
+    allocate_all: bool | None = None
+
+
+class VerifyNumberRequest(Input):
+    model_config = ConfigDict(extra="allow")
+
+    id: int | None = None
+    verification_id: int | None = None
+    ticket_id: int | None = None
+    call_id: int | None = None
+    number: int | None = None
+    verification_no: int | str | None = None
+    ticket_no: int | str | None = None
+    call_no: int | str | None = None
+    answer: str | None = None
+    proof: str | None = None
+    private_mark: str | None = None
+    code: str | None = None
+    idempotency_key: str | int | None = None
+    idempotency_token: str | int | None = None
+    request_id: str | int | None = None
+    request_token: str | int | None = None
+    client_token: str | int | None = None
+    nonce: str | int | None = None
+    key: str | int | None = None
 
 
 class DispatchRequest(Input):

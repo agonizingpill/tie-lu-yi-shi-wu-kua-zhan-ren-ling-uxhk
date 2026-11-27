@@ -34,6 +34,21 @@
 .recall-ticket form { justify-self: end; display: flex; align-items: center; gap: 4px; }
 .recall-ticket form input { width: 136px; }
 .recall-history { margin-top: 16px; }
+.current-call { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 11px 12px; margin: 0 0 12px; border: 1px solid color-mix(in srgb, var(--green) 45%, var(--line)); background: color-mix(in srgb, var(--green) 8%, var(--paper)); }
+.current-call strong { font-size: 1.25rem; color: var(--green); }
+.current-call small { flex-basis: 100%; color: var(--muted); }
+.current-call.idle { border-style: dashed; background: transparent; }
+.current-call.done { border-color: var(--green); }
+.current-ticket { background: color-mix(in srgb, var(--green) 7%, transparent); outline: 1px solid color-mix(in srgb, var(--green) 35%, transparent); padding-inline: 8px; }
+.current-no { white-space: nowrap; color: var(--muted); }
+.current-no b { color: var(--green); font-size: 1.05rem; }
+.blocked-ticket { opacity: .68; }
+.rejected-pair { color: var(--red, #a33); font-weight: 700; }
+.number-board { margin-bottom: 16px; }
+.number-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.number-chip { display: grid; gap: 3px; text-align: left; padding: 8px 10px; border: 1px solid var(--line); background: var(--paper); }
+.number-chip b { color: var(--green); }
+.number-chip span { font-size: .82rem; color: var(--muted); }
 .movement-list { display: grid; margin-top: 13px; }
 .movement { border-block-start: 1px solid var(--line); padding: 12px 0; }
 .movement .route { display: flex; align-items: center; gap: 7px; font-weight: 700; }

@@ -18,21 +18,60 @@ function entries(mayClaim) {
   </form>`;
 }
 
-function resultTicket(hit, mayClaim) {
-  const canCheck = mayClaim && hit.auditable && hit.bag_state === 'sealed';
-  return `<div class="recall-ticket">
+function numberLabel(call) {
+  return call ? '#' + escape(String(call.verification_no || call.id)) : '';
+}
+
+function resultTicket(hit, mayClaim, current) {
+  const isCurrent = current && current.active && hit.seal_id === current.seal_id;
+  const blocked = hit.proof_rejected;
+  const canCheck = mayClaim && hit.auditable && hit.bag_state === 'sealed' && !blocked
+    && (!current || !current.active || isCurrent);
+  let action;
+  if (blocked) {
+    action = '<small class="rejected-pair">暗记已拒：跳过此线索与封袋</small>';
+  } else if (isCurrent) {
+    action = `<form data-seal="${escape(hit.seal_id)}" data-number="${current.id}">
+      <span class="current-no" aria-label="当前核验号">核验号 <b>${numberLabel(current)}</b></span>
+      <input name="answer" type="password" required placeholder="私密特征" minlength="3" aria-label="旅客提供的私密特征">
+      <button type="submit" class="slim">按号核验</button>
+    </form>`;
+  } else if (canCheck) {
+    action = `<form data-seal="${escape(hit.seal_id)}"><input name="answer" type="password"`
+      + ' required placeholder="私密特征" minlength="3" aria-label="旅客提供的私密特征"><button type="submit" class="slim">核验</button></form>';
+  } else {
+    action = '<small>' + (!hit.auditable ? '公开证据不足'
+      : current && current.active ? '当前核验号已指定其他封袋'
+      : status(hit.bag_state)) + '</small>';
+  }
+  return `<div class="recall-ticket${isCurrent ? ' current-ticket' : ''}${blocked ? ' blocked-ticket' : ''}">
     <div><strong class="mono">${escape(hit.seal_id)}</strong><small>${escape(station(hit.current_station))} · ${escape(hit.train_no)}</small></div>
     <div><progress aria-label="相似度" max="1" value="${hit.score}"></progress><small>相似度 ${Math.round(hit.score * 100)}%</small>
       <small>同特征 ${hit.exact_features} · 碰撞桶 ${hit.collision_slots}</small></div>
-    ${canCheck ? '<form data-seal="' + escape(hit.seal_id) + '"><input name="answer" type="password"'
-      + ' required placeholder="私密特征" minlength="3" aria-label="旅客提供的私密特征"><button type="submit" class="slim">核验</button></form>'
-      : '<small>' + (!hit.auditable ? '公开证据不足' : status(hit.bag_state)) + '</small>'}
+    ${action}
+  </div>`;
+}
+
+function currentBanner(search, current, mayClaim) {
+  if (current && current.active) {
+    return `<div class="current-call" role="status">
+      <span>当前核验号</span><strong class="mono">${numberLabel(current)}</strong>
+      <span>对应封袋 <b class="mono">${escape(current.seal_id)}</b></span>
+      <small>两站同时排号时，一张线索或一只封袋只保留一个有效号。</small>
+    </div>`;
+  }
+  if (current && current.status === 'verified') {
+    return '<div class="current-call done" role="status">核验号 ' + numberLabel(current) + ' 已通过并锁定封袋。</div>';
+  }
+  return `<div class="current-call idle"><span>当前没有有效核验号。</span>
+    ${mayClaim ? '<button type="button" id="call-number" class="slim">从可核验候选排号</button>' : ''}
+    <small>排号先满足最多线索，再最大化相似度总和；暗记不符后该对永久跳过并重新分配空位。</small>
   </div>`;
 }
 
 export async function recall(main) {
   const mayClaim = store.user.role === 'clerk';
-  main.innerHTML = pageTitle('OBSERVATION / 线索', '公开线索匹配', '按公开描述、类别、位置标签和车次生成相似封袋。核验前检查同特征与碰撞桶。')
+  main.innerHTML = pageTitle('OBSERVATION / 线索', '公开线索匹配与核验排号', '按公开描述、类别、位置标签和车次生成相似封袋。排号避免两站同时叫同一件，核验前检查同特征与碰撞桶。')
     + `<div class="domain-grid search-grid"><div class="stack"><section class="panel"><h2>录入查找线索</h2>
       <p class="muted">建议把拉链、背带等可见特征分词填写。</p><div id="submit-result"></div>${entries(mayClaim)}
       </section><section class="panel recall-history"><h2>近期线索单</h2><div id="search-history"></div></section>
@@ -55,20 +94,53 @@ export async function recall(main) {
       }
       if (requestId !== activeRequest || !result.isConnected) return;
       const {search, candidates} = bundle;
+      const current = bundle.current_verification || bundle.current || bundle.call || bundle.ticket || null;
       const summary = search.model_summary;
       result.innerHTML = `<div class="recall-head"><div><span class="stamp">线索 #${search.id}</span>
       <p>${escape(search.description)}</p></div>${status(search.status)}</div>
+      ${currentBanner(search, current, mayClaim)}
+      <div id="call-message"></div>
       ${summary ? '<p class="muted mono">FeatureHasher · ' + summary.dimensions + ' 维 · 对比 ' + summary.compared
         + ' 件 · 可核验 ' + summary.usable + ' 件</p>' : ''}
-      ${candidates.length ? candidates.map(hit => resultTicket(hit, mayClaim)).join('')
+      ${candidates.length ? candidates.map(hit => resultTicket(hit, mayClaim, current)).join('')
         : '<p class="empty">' + (search.status === 'queued' ? '匹配处理中。可稍后从历史区重新打开。'
           : '当前没有可展示的封袋候选。请核对日期与公开描述。') + '</p>'}`;
+
+      const callButton = result.querySelector('#call-number');
+      if (callButton) {
+        callButton.addEventListener('click', async () => {
+          callButton.disabled = true;
+          const callMessage = result.querySelector('#call-message');
+          try {
+            const ticket = await api.callNumber(search.id);
+            await select(search.id, false);
+            showMessage(message, '已叫出当前核验号 #' + (ticket.verification_no || ticket.id) + '。');
+          } catch (error) {
+            callButton.disabled = false;
+            showMessage(callMessage || message, error.message, 'error');
+          }
+        });
+      }
+
       result.querySelectorAll('form[data-seal]').forEach(form => formAction(form, message, async body => {
-        const claim = await api.claim({search_id: search.id, seal_id: form.dataset.seal, answer: body.answer});
-        store.selectedClaim = claim.id;
-        await select(search.id, false);
-        message.innerHTML = '<p class="message" role="status">封袋已锁定。'
-          + '<a href="#claims">前往认领交付，办理认领单 #' + claim.id + '</a></p>';
+        const numberId = form.dataset.number;
+        try {
+          let claim;
+          if (numberId) {
+            claim = await api.verifyNumber(numberId, body.answer);
+          } else {
+            claim = await api.claim({search_id: search.id, seal_id: form.dataset.seal, answer: body.answer});
+          }
+          store.selectedClaim = claim.claim_id || claim.id;
+          await select(search.id, false);
+          message.innerHTML = '<p class="message" role="status">封袋已锁定。'
+            + '<a href="#claims">前往认领交付，办理认领单 #' + escape(String(claim.claim_id || claim.id)) + '</a></p>';
+        } catch (error) {
+          // A lost response or 409 verdict is safely replayable; refreshing also
+          // reveals the revoked pair and any replacement number.
+          await select(search.id, false);
+          throw error;
+        }
       }));
     } catch (error) {
       showMessage(result, error.message, 'error');

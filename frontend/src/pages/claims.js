@@ -7,7 +7,8 @@ import {store} from '../store.js';
 
 export async function claims(main) {
   main.innerHTML = pageTitle('HANDOVER / 领回', '认领和取件交付', '取件站在柜核对封签。完成交付后，认领单和封袋同时封结。')
-    + `<div class="domain-grid"><section class="panel"><h2>已验私密特征的认领单</h2><div id="claim-list"></div></section>
+    + `<section class="panel number-board"><h2>当前核验号</h2><div id="number-board-list"><p class="empty">正在读取叫号台…</p></div></section>
+      <div class="domain-grid"><section class="panel"><h2>已验私密特征的认领单</h2><div id="claim-list"></div></section>
       <aside class="stack"><section class="panel"><h2>凭封签交付</h2>
       <div id="release-message"></div><div id="claim-detail"><p class="empty">选择认领单查看取件条件。</p></div></section>
       <section class="panel"><h2>离柜核对</h2><ul class="notes"><li><b>取件站一致</b>柜员只能交付本站办理的认领。</li>
@@ -45,5 +46,25 @@ export async function claims(main) {
     const active = rows.find(claim => claim.id === store.selectedClaim);
     if (active) select(active);
   }
+  async function refreshNumbers() {
+    const board = main.querySelector('#number-board-list');
+    if (!board) return;
+    try {
+      const envelope = await api.currentCalls();
+      const numbers = (envelope.tickets || envelope.items || []).filter(item => item.active);
+      board.innerHTML = numbers.length ? '<div class="number-chips">' + numbers.slice(0, 12).map(item =>
+        '<button type="button" class="number-chip" data-search="' + item.search_id + '">'
+        + '<b>核验号 #' + escape(String(item.verification_no || item.id)) + '</b>'
+        + '<span>线索 #' + item.search_id + ' · <span class="mono">' + escape(item.seal_id) + '</span></span></button>').join('')
+        + '</div>' : '<p class="empty">当前没有待核验号码。可在「线索匹配」页为线索排号。</p>';
+      board.querySelectorAll('[data-search]').forEach(button => button.addEventListener('click', () => {
+        store.selectedSearch = Number(button.dataset.search);
+        location.hash = '#recall';
+      }));
+    } catch (error) {
+      board.innerHTML = '<p class="empty">暂未读取到叫号台。</p>';
+    }
+  }
   await refresh();
+  await refreshNumbers();
 }

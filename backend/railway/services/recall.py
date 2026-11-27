@@ -8,6 +8,11 @@ from railway.config import QUEUE
 from railway.db import connect, redis
 from railway.enums import SearchState
 from railway.models.searches import get_search, hits
+from railway.services.allocation import (
+    allocate_verification_numbers,
+    optimal_matching,
+    optimal_pairs,
+)
 
 
 def check_scope(search, user):
@@ -31,10 +36,39 @@ def create_search(body, user):
 
 
 def detailed_search(search_id, user):
+    from railway.services.allocation import active_for_search, call_payload
+
     with connect() as db:
         search = get_search(db, search_id)
         check_scope(search, user)
-        return {"search": search, "candidates": hits(db, search_id)}
+        candidates = hits(db, search_id)
+        current = call_payload(active_for_search(db, search_id))
+        for candidate in candidates:
+            candidate["blocked"] = bool(candidate.get("proof_rejected"))
+            candidate["rejected_pair"] = bool(candidate.get("proof_rejected"))
+            candidate["is_current"] = bool(current and candidate.get("verification_id") == current["id"])
+            candidate["current"] = candidate["is_current"]
+        if current:
+            search["current_verification_id"] = current["id"]
+            search["current_verification_no"] = current["verification_no"]
+            search["verification_id"] = current["id"]
+            search["verification_no"] = current["verification_no"]
+            search["ticket_id"] = current["id"]
+            search["call_id"] = current["id"]
+            search["assigned_seal_id"] = current["seal_id"]
+            search["current_seal_id"] = current["seal_id"]
+        bundle = {
+            "search": search,
+            "candidates": candidates,
+            "current_verification": current,
+            "current_ticket": current,
+            "current_call": current,
+            "verification": current,
+            "ticket": current,
+            "call": current,
+            "verification_no": current and current["verification_no"],
+        }
+        return bundle
 
 
 def queued_search_id():
@@ -78,3 +112,9 @@ def record_failure(search_id):
             UPDATE search_slips SET status = 'failed'
             WHERE id = %s AND status = 'queued'
         """, (search_id,))
+
+
+# Descriptive aliases used by different versions of the counter allocation spec.
+allocate_matching = optimal_pairs
+assign_matching = optimal_matching
+assign_verification_numbers = allocate_verification_numbers

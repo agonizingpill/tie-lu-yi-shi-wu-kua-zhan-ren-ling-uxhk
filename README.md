@@ -60,11 +60,24 @@ docker compose exec -T backend python -m scripts.seed_demo
 7. 10:00，河桥关实扫 `BL-261123-014` 确认入柜。北砾不能代扫。
 8. 10:15，河桥关当面扫描封签并交付。稽核看到完整顺序，第二次交付被拒绝。
 
+## 核验排号与断网重试
+
+相似候选不再由各站柜员各自抢核。系统只从 `auditable = true` 的 `recall_hits` 边中构造二分图：
+
+1. 先用最大流求最大匹配，保证最多线索单领到核验号；
+2. 再在最大基数匹配中最小化负相似度成本，即相似度总和最大；
+3. `verification_numbers` 的两个部分唯一索引保证一张线索单或一只封袋至多有一个未终局号码，PostgreSQL 咨询锁串行化两站同时排号；
+4. 私密特征通过后才写入 `claims` 并把封袋改为 `reserved`；不符则号码终局为 `rejected`，结构化写入 `verification_rejections`，以后排号永久跳过该线索-封袋对，并立即重算空余顶点；
+5. 核验号保存首次 HTTP 判定和响应体。对同一 `POST /calls/{id}/verify` 的断网重试会重放原 201/409，不新增认领、拒绝记录或履历；也支持 `Idempotency-Key` 请求头和 `POST /claims` 原接口。
+
+柜台线索页会显示「当前核验号」和对应封袋；被跳过的组合置灰。常用接口为 `POST /calls`、`GET /calls/current?search_id=...`、`POST /calls/{id}/verify`，同时保留 `/verification-numbers`、`/verification-tickets` 等路径别名。
+
 ## 算法与代码
 
 `backend/railway/services/encoding.py` 根据类别、主色、车次和规范化公开描述构造特征。类别权重为 3，主色为 2，车次和描述词/相邻双字符为 1。FeatureHasher 使用 64 维带符号映射，然后计算稀疏余弦，相似度至少 0.2 的前 12 件按分值和封签号排序。同一版本与同一批封袋的结果可复现。每项保留碰撞桶计数与未哈希特征交集。类别一致且有直接公开词证据才能进入私密核验。输入窗口为乘车日前一天至后两天，由日期和当前在柜状态限制。计算异常标记线索单失败。
 
 - `backend/migrations/001_custody.sql` 建立领域表、外键及唯一性约束。
+- `backend/migrations/002_verification_numbers.sql` 建立核验号、永久拒绝对和幂等请求表。
 - `backend/railway/{models,services,routes}` 实现依赖交易和接口。
 - `backend/scripts/seed_demo.py` 按站点、账号、封签幂等导入。
 - `frontend/src/pages` 提供封袋台账、公开线索、跨站转运、认领交付。

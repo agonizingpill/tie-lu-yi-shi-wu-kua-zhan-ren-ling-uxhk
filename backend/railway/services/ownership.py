@@ -11,30 +11,12 @@ from railway.services.recall import check_scope
 
 
 def verify_claim(body, user):
-    with connect() as db:
-        bag = find_bag(db, body.seal_id, lock=True)
-        search = get_search(db, body.search_id, lock=True)
-        check_scope(search, user)
-        hit = db.execute("SELECT auditable FROM recall_hits WHERE search_id = %s AND seal_id = %s",
-                         (body.search_id, body.seal_id)).fetchone()
-        if not hit or not hit["auditable"]:
-            raise HTTPException(409, "缺少可核对的公开词证据，单凭哈希候选不得认领")
-        if bag["state"] != BagState.SEALED:
-            raise HTTPException(409, "封袋已锁给其他认领或已交付")
-        if db.execute("SELECT 1 FROM claims WHERE search_id = %s", (body.search_id,)).fetchone():
-            raise HTTPException(409, "本线索单已认领另一封袋")
-        if matches_proof(body.seal_id, body.answer, bag["proof_digest"]):
-            claim = db.execute("""
-                INSERT INTO claims (search_id, seal_id, pickup_station, status, verified_by)
-                VALUES (%s, %s, %s, 'verified', %s) RETURNING id, seal_id, pickup_station, status
-            """, (body.search_id, body.seal_id, user["station_code"], user["email"])).fetchone()
-            set_custody(db, body.seal_id, BagState.RESERVED, bag["current_station"])
-            append_event(db, body.seal_id, user["email"], "claim_verified",
-                         f"线索单 {body.search_id} 私密特征通过，封袋锁定")
-            return claim
-        append_event(db, body.seal_id, user["email"], "proof_rejected",
-                     f"线索单 {body.search_id} 的私密特征不符，封袋仍可核验")
-    raise HTTPException(409, "私密特征不符，封袋未锁定")
+    # The durable implementation lives in verification_desk so ticket-based
+    # verification, direct /claims compatibility, replay and reallocation share
+    # one state machine.
+    from railway.services.verification_desk import verify_claim as _verify_claim
+
+    return _verify_claim(body, user)
 
 
 def release_claim(claim_id, body, user):

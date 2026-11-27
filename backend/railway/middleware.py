@@ -26,7 +26,7 @@ class RequestTrace(BaseHTTPMiddleware):
 
 class LoginQuota(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path == "/auth/login" and request.method == "POST":
+        if request.url.path.rstrip("/") in ("/auth/login", "/api/auth/login") and request.method == "POST":
             client = request.client.host if request.client else "unknown"
             key = f"rail:login-quota:{client}"
             try:
